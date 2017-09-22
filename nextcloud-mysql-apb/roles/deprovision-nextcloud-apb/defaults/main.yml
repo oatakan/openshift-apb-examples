@@ -1,0 +1,76 @@
+---
+namespace: "{{ lookup('env','NAMESPACE') | default('nextcloud', true) }}"
+
+persistent_volume_claims:
+  - name: nextcloud-data
+    size: 3Ti
+    access_modes:
+      - ReadWriteMany
+    match_labels:
+      app: nextcloud
+      pod: nextcloud-data
+      env: '{{ env | default("test") }}'
+  - name: nextcloud-media
+    size: 3Ti
+    access_modes:
+      - ReadWriteMany
+    match_labels:
+      app: nextcloud
+      pod: nextcloud-media
+      env: '{{ env | default("test") }}'
+  - name: nextcloud-apps2
+    size: 20Gi
+    access_modes:
+      - ReadWriteMany
+    match_labels:
+      app: nextcloud
+      pod: nextcloud-apps2
+      env: '{{ env | default("test") }}'
+  - name: nextcloud-themes
+    size: 20Gi
+    access_modes:
+      - ReadWriteMany
+    match_labels:
+      app: nextcloud
+      pod: nextcloud-themes
+      env: '{{ env | default("test") }}'
+  - name: mysql-storage
+    size: 20Gi
+    access_modes:
+      - ReadWriteOnce
+    match_labels:
+      app: nextcloud
+      pod: mysql-storage
+      env: '{{ env | default("test") }}'
+  - name: mysql-logs
+    size: 20Gi
+    access_modes:
+      - ReadWriteOnce
+    match_labels:
+      app: nextcloud
+      pod: mysql-logs
+      env: '{{ env | default("test") }}'
+  - name: redis-data
+    size: 20Gi
+    access_modes:
+      - ReadWriteOnce
+    match_labels:
+      app: nextcloud
+      pod: redis-data
+      env: '{{ env | default("test") }}'
+  - name: solr-data
+    size: 20Gi
+    access_modes:
+      - ReadWriteOnce
+    match_labels:
+      app: nextcloud
+      pod: solr-data
+      env: '{{ env | default("test") }}'
+  - name: nginx-proxy-certs
+    size: 1Gi
+    access_modes:
+      - ReadWriteOnce
+    match_labels:
+      app: nextcloud
+      pod: nginx-proxy-certs
+      env: '{{ env | default("test") }}'

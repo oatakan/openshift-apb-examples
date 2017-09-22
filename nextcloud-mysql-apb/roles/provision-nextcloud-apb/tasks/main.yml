@@ -1,0 +1,414 @@
+##############################################################################
+## Provision nextcloud
+## This role executes much of the needed functionality to provision an
+## application using an Ansible Playbook Bundle.  Included in the comments
+## below are some sample resources for getting started deploying an application
+## to OpenShift.
+##############################################################################
+
+
+##############################################################################
+## An OpenShift Origin deployment configuration provides a replication
+## controller, spins up pods, and also provides the ability to transition from
+## one deployment of an image to a new one.
+## https://docs.openshift.org/latest/architecture/core_concepts/deployments.html#deployments-and-deployment-configurations
+##############################################################################
+- name: create persistent volume claims
+  k8s_v1_persistent_volume_claim:
+    name: '{{ item.name }}'
+    namespace: '{{ namespace }}'
+    state: present
+    access_modes: '{{ item.access_modes }}'
+    resources_requests:
+      storage: '{{ item.size }}'
+    spec_selector_match_labels: '{{ item.match_labels | default (omit) }}'
+  with_items: '{{ persistent_volume_claims }}'
+
+- name: mysql service
+  k8s_v1_service:
+    name: mysql
+    namespace: '{{ namespace }}'
+    state: present
+    labels:
+      app: '{{ namespace }}'
+      service: mysql
+    selector:
+      app: '{{ namespace }}'
+      service: mysql
+    ports:
+      - name: mysql-3306
+        port: 3306
+        protocol: TCP
+        target_port: 3306
+
+- name: redis service
+  k8s_v1_service:
+    name: redis
+    namespace: '{{ namespace }}'
+    state: present
+    labels:
+      app: '{{ namespace }}'
+      service: redis
+    selector:
+      app: '{{ namespace }}'
+      service: redis
+    ports:
+      - name: redis-6379
+        port: 6379
+        protocol: TCP
+        target_port: 6379
+
+- name: solr service
+  k8s_v1_service:
+    name: solr
+    namespace: '{{ namespace }}'
+    state: present
+    labels:
+      app: '{{ namespace }}'
+      service: solr
+    selector:
+      app: '{{ namespace }}'
+      service: solr
+    ports:
+      - name: solr-8983
+        port: 8983
+        protocol: TCP
+        target_port: 8983
+
+- name: create nextcloud service
+  k8s_v1_service:
+    name: nextcloud
+    namespace: '{{ namespace }}'
+    state: present
+    labels:
+      app: '{{ namespace }}'
+      service: nextcloud
+    selector:
+      app: '{{ namespace }}'
+      service: nextcloud
+    ports:
+      - name: nextcloud-8888
+        port: 8888
+        protocol: TCP
+        target_port: 8888
+
+- name: create nginx-proxy service
+  k8s_v1_service:
+    name: nginx-proxy
+    namespace: '{{ namespace }}'
+    labels:
+      app: '{{ namespace }}'
+      service: nginx-proxy
+    selector:
+      app: '{{ namespace }}'
+      service: nginx-proxy
+    ports:
+      - name: nginx-proxy-8000
+        port: 8000
+        target_port: 8000
+      - name: nginx-proxy-4430
+        port: 4430
+        target_port: 4430
+
+- name: create nextcloud route
+  openshift_v1_route:
+    name: nextcloud
+    namespace: '{{ namespace }}'
+    labels:
+      app: '{{ namespace }}'
+      service: nextcloud
+    to_name: nginx-proxy
+    spec_port_target_port: nginx-proxy-4430
+    spec_tls_termination: passthrough
+  register: route
+
+- name: Create redis.config.php
+  template:
+    src: redis.config.php.j2
+    dest: /tmp/redis.config.php
+
+- name: Create extra.config.php
+  template:
+    src: extra.config.php.j2
+    dest: /tmp/extra.config.php
+
+- name: Create configMap temp-config-php
+  shell: oc create configmap temp-config-php --from-file=redis-config-php=/tmp/redis.config.php --from-file=extra-config-php=/tmp/extra.config.php  -n {{ namespace }}
+  ignore_errors: yes
+
+- name: Create default.conf
+  template:
+    src: default.conf.j2
+    dest: /tmp/default.conf
+
+- name: Copy ssl config files
+  copy:
+    src: '{{ item }}'
+    dest: /tmp/{{ item }}
+  with_items:
+    - ssl_params.conf
+    - proxy_params
+
+- name: Create configmap for nginx-conf
+  shell: oc create configmap nginx-conf --from-file=nginx-conf=/tmp/default.conf -n {{ namespace }}
+  ignore_errors: yes
+
+- name: Create configmap for ssl-config
+  shell: oc create configmap ssl-config --from-file=ssl-params-conf=/tmp/ssl_params.conf --from-file=proxy-params=/tmp/proxy_params -n {{ namespace }}
+  ignore_errors: yes
+
+- name: create deployment config for mysql
+  openshift_v1_deployment_config:
+    name: mysql
+    namespace: '{{ namespace }}'
+    labels:
+      app: '{{ namespace }}'
+      service: mysql
+    replicas: 1
+    selector:
+      app: '{{ namespace }}'
+      service: mysql
+    spec_template_metadata_labels:
+      app: '{{ namespace }}'
+      service: mysql
+    containers:
+    - env:
+      - name: MYSQL_ROOT_PASSWORD
+        value: '{{ mysql_root_password }}'
+      - name: MYSQL_DATABASE
+        value: '{{ mysql_name }}'
+      - name: MYSQL_USER
+        value: '{{ mysql_user }}'
+      - name: MYSQL_PASSWORD
+        value: '{{ mysql_password }}'
+      image: docker.io/mariadb:{{ mysql_version }}
+      image_pull_policy: IfNotPresent
+      name: mysql
+      ports:
+      - container_port: 3306
+        protocol: TCP
+      termination_message_path: /dev/termination-log
+      volume_mounts:
+      - mount_path: /var/lib/mysql
+        name: mysql-storage
+      - mount_path: /var/log/mysql
+        name: mysql-logs
+      working_dir: /
+    dns_policy: ClusterFirst
+    restart_policy: Always
+    termination_grace_period_seconds: 30
+    volumes:
+    - name: mysql-logs
+      persistent_volume_claim:
+        claim_name: mysql-logs
+    - name: mysql-storage
+      persistent_volume_claim:
+        claim_name: mysql-storage
+    triggers:
+    - type: ConfigChange
+
+- name: create deployment config for redis
+  openshift_v1_deployment_config:
+    name: redis
+    namespace: '{{ namespace }}'
+    labels:
+      app: '{{ namespace }}'
+      service: redis
+    replicas: 1
+    selector:
+      app: '{{ namespace }}'
+      service: redis
+    spec_template_metadata_labels:
+      app: '{{ namespace }}'
+      service: redis
+    containers:
+    - env:
+      image: redis:alpine
+      image_pull_policy: IfNotPresent
+      name: redis
+      ports:
+      - container_port: 6379
+        protocol: TCP
+      volume_mounts:
+      - mount_path: /data
+        name: redis-data
+    dns_policy: ClusterFirst
+    restart_policy: Always
+    termination_grace_period_seconds: 30
+    volumes:
+    - name: redis-data
+      persistent_volume_claim:
+        claim_name: redis-data
+    triggers:
+    - type: ConfigChange
+
+- name: create deployment config for solr
+  openshift_v1_deployment_config:
+    name: solr
+    namespace: '{{ namespace }}'
+    labels:
+      app: '{{ namespace }}'
+      service: solr
+    replicas: 1
+    selector:
+      app: '{{ namespace }}'
+      service: solr
+    spec_template_metadata_labels:
+      app: '{{ namespace }}'
+      service: solr
+    containers:
+    - env:
+      image: solr:6-alpine
+      image_pull_policy: IfNotPresent
+      name: redis
+      command:
+      - docker-entrypoint.sh
+      - solr-precreate
+      - nextant
+      ports:
+      - container_port: 8983
+        protocol: TCP
+      volume_mounts:
+      - mount_path: /opt/solr/server/solr/mycores
+        name: solr-data
+    dns_policy: ClusterFirst
+    restart_policy: Always
+    termination_grace_period_seconds: 30
+    volumes:
+    - name: solr-data
+      persistent_volume_claim:
+        claim_name: solr-data
+    triggers:
+    - type: ConfigChange
+
+- name: create deployment config for nextcloud
+  openshift_v1_deployment_config:
+    name: nextcloud
+    namespace: '{{ namespace }}'
+    labels:
+      app: '{{ namespace }}'
+      service: nextcloud
+    replicas: 1
+    selector:
+      app: '{{ namespace }}'
+      service: nextcloud
+    spec_template_metadata_labels:
+      app: '{{ namespace }}'
+      service: nextcloud
+    containers:
+    - env:
+      - name: DOMAIN
+        value: "{{ route.route.spec.host }}"
+      - name: DB_TYPE
+        value: "{{ db_type }}"
+      - name: DB_NAME
+        value: "{{ mysql_name }}"
+      - name: DB_USER
+        value: "{{ mysql_user }}"
+      - name: DB_PASSWORD
+        value: "{{ mysql_password }}"
+      - name: DB_HOST
+        value: "{{ mysql_host }}"
+      image: wonderfall/nextcloud:{{ nextcloud_version }}
+      name: nextcloud
+      lifecycle:
+        postStart:
+          exec:
+            command:
+              - /bin/sh
+              - -c
+              - ln -fs /config-temp/redis.config.php /nextcloud/config/redis.config.php && ln -fs /config-temp/extra.config.php /nextcloud/config/extra.config.php
+      ports:
+      - container_port: 8888
+        protocol: TCP
+      volume_mounts:
+      - mount_path: /data
+        name: nextcloud-data
+      - mount_path: /media
+        name: nextcloud-media
+      - mount_path: /config
+        name: nextcloud-config
+      - mount_path: /apps2
+        name: nextcloud-apps2
+      - mount_path: /nextcloud/themes
+        name: nextcloud-themes
+      - mount_path: /config-temp
+        name: nextcloud-config-temp
+    dns_policy: ClusterFirst
+    restart_policy: Always
+    termination_grace_period_seconds: 30
+    volumes:
+    - name: nextcloud-data
+      persistent_volume_claim:
+        claim_name: nextcloud-data
+    - name: nextcloud-media
+      persistent_volume_claim:
+        claim_name: nextcloud-media
+    - name: nextcloud-apps2
+      persistent_volume_claim:
+        claim_name: nextcloud-apps2
+    - name: nextcloud-themes
+      persistent_volume_claim:
+        claim_name: nextcloud-themes
+    - name: nextcloud-config
+    - name: nextcloud-config-temp
+      configMap:
+        name: temp-config-php
+        items:
+        - key: redis-config-php
+          path: redis.config.php
+        - key: extra-config-php
+          path: extra.config.php
+    triggers:
+    - type: ConfigChange
+
+- name: create deployment config for nginx-proxy
+  openshift_v1_deployment_config:
+    name: nginx-proxy
+    namespace: '{{ namespace }}'
+    labels:
+      app: '{{ namespace }}'
+      service: nginx-proxy
+    replicas: 1
+    selector:
+      app: '{{ namespace }}'
+      service: nginx-proxy
+    spec_template_metadata_labels:
+      app: '{{ namespace }}'
+      service: nginx-proxy
+    containers:
+    - env:
+      image: toccoag/openshift-nginx
+      imagePullPolicy: IfNotPresent
+      name: nginx-proxy
+      ports:
+      - container_port: 8000
+        protocol: TCP
+      - container_port: 4430
+        protocol: TCP
+      volumeMounts:
+      - mountPath: /etc/nginx/conf.d
+        name: configuration
+      - mountPath: /etc/nginx/conf
+        name: ssl-config
+      - mountPath: /certs
+        name: nginx-proxy-certs
+    restart_policy: Always
+    volumes:
+    - name: configuration
+      configMap:
+        name: nginx-conf
+        items:
+        - key: nginx-conf
+          path: default.conf
+    - name: ssl-config
+      configMap:
+        name: ssl-config
+        items:
+        - key: ssl-params-conf
+          path: ssl_params.conf
+        - key: proxy-params
+          path: proxy_params
+    - name: nginx-proxy-certs
+      persistent_volume_claim:
+        claim_name: nginx-proxy-certs

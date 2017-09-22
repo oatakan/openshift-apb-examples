@@ -1,0 +1,70 @@
+name: nextcloud-mysql-apb
+image: ansibleplaybookbundle/nextcloud-mysql-apb
+description: This is an apb that will deploy nextcloud
+dependencies: ['docker.io/mysql:latest', 'docker.io/wonderfall/nextcloud:latest']
+bindable: False
+async: optional
+metadata:
+  displayName: nextcloud
+plans:
+  - name: default
+    description: This default plan deploys nextcloud-apb
+    free: True
+    metadata: {}
+    parameters:
+    - name: mysql_name
+      required: true
+      default: nextcloud
+      type: string
+      title: MySQL Database Name
+    - name: mysql_user
+      required: true
+      default: nextcloud
+      title: MySQL User
+      type: string
+      maxlength: 63
+    - name: mysql_password
+      default: admin
+      type: string
+      description: A random alphanumeric string if left blank
+      title: MySQL Password
+    - name: mysql_root_password
+      default: admin
+      type: string
+      description: root password for mysql
+      title: Root Password
+    - name: nextcloud_version
+      default: latest
+      enum: ['latest', '12']
+      type: enum
+      title: Nextcloud Version
+      required: true
+    - name: mysql_version
+      default: latest
+      enum: ['latest']
+      type: enum
+      title: MySQL Version
+      required: true
+    - name: admin_user
+      required: true
+      default: nextcloud
+      title: Admin User
+      type: string
+      maxlength: 63
+    - name: admin_password
+      default: admin
+      type: string
+      description: Enter some strong admin password here
+      title: Admin password
+      required: true
+    - name: domain
+      required: true
+      default: nextcloud
+      title: Domain
+      type: string
+    - name: db_type
+      default: mysql
+      enum: ['mysql', 'sqlite3', 'pgsql']
+      type: enum
+      title: DB Type
+      required: true

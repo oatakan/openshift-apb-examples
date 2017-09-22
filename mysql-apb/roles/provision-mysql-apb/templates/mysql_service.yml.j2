@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  labels:
+    app: '{{ namespace }}'
+    service: mysql
+spec:
+  ports:
+  - name: mysql-3306
+    port: 3306
+    protocol: TCP
+    target_port: 3306
+  loadBalancerIP: {{ mysql_external_ip | default(omit) }}
+  type: LoadBalancer
+  selector:
+    app: '{{ namespace }}'
+    service: mysql

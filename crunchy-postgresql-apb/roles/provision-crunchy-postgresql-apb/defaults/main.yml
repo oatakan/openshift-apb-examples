@@ -1,0 +1,20 @@
+---
+namespace: "{{ lookup('env','NAMESPACE') | default('crashplan', true) }}"
+db_volume_size: 1Gi
+nfs_server: 192.168.1.34
+nfs_path_base: /exports
+persistent_volume_reclaim_policy: Recycle
+persistent_volumes:
+  - crunchy-postgresql-pv01
+database_replicas: 2
+ccp_image_tag: centos7-9.6-1.5.1
+pg_master_user: admin
+pghost: /tmp
+pg_mode: set
+pg_master_host: pgset-master
+pg_master_port: 5432
+pg_master_password: password
+pg_user: testuser
+pg_password: password
+pg_database: userdb
+pg_root_password: password

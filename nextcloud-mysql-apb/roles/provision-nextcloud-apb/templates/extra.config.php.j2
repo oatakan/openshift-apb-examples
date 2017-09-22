@@ -1,0 +1,33 @@
+<?php
+$CONFIG = array (
+  'instanceid' => '{{ nextcloud_instance_id }}',
+  'passwordsalt' => '{{ nextcloud_password_salt }}',
+  'secret' => '{{ nextcloud_secret }}',
+  'updater.secret' => '{{ nextcloud_updater_secret }}',
+  'trusted_domains' =>
+  array (
+    0 => '{{ route.route.spec.host }}',
+  ),
+  'overwrite.cli.url' => 'http://{{ route.route.spec.host }}',
+  'dbtype' => 'mysql',
+  'version' => '12.0.3.3',
+  'dbname' => '{{ mysql_name }}',
+  'dbhost' => 'mysql',
+  'dbport' => '',
+  'dbtableprefix' => 'oc_',
+  'mysql.utf8mb4' => true,
+  'dbuser' => '{{ mysql_user }}',
+  'dbpassword' => '{{ mysql_password }}',
+  'installed' => true,
+  'logtimezone' => 'Etc/UTC',
+  'logdateformat' => 'Y-m-d H:i:s',
+  'mail_from_address' => '{{ nextcloud_mail_from_address | default("") }}',
+  'mail_smtpmode' => 'smtp',
+  'mail_domain' => '{{ nextcloud_mail_domain | default("") }}',
+  'mail_smtpsecure' => 'tls',
+  'mail_smtpauthtype' => 'LOGIN',
+  'mail_smtphost' => '{{ nextcloud_smtp_host | default("") }}',
+  'mail_smtpauth' => 1,
+  'mail_smtpname' => '{{ nextcloud_mail_smtp_name | default("") }}',
+  'mail_smtppassword' => '{{ nextcloud_smtp_password | default("") }}',
+);

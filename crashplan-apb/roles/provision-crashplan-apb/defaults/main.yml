@@ -1,0 +1,38 @@
+---
+namespace: "{{ lookup('env','NAMESPACE') | default('crashplan', true) }}"
+crashplan_version: "{{ lookup('env','CRASHPLAN_VERSION') | default('latest', true) }}"
+vnc_password: "{{ lookup('env','VNC_PASSWORD') | default('admin', true) }}"
+
+persistent_volume_claims:
+  - name: crashplan-config
+    size: 1Gi
+    access_modes:
+      - ReadWriteOnce
+    match_labels:
+      app: crashplan
+      pod: crashplan-config
+      env: '{{ env | default("test") }}'
+  - name: crashplan-backup
+    size: 3Ti
+    access_modes:
+      - ReadWriteOnce
+    match_labels:
+      app: crashplan
+      pod: crashplan-backup
+      env: '{{ env | default("test") }}'
+  - name: crashplan-target1
+    size: 3Ti
+    access_modes:
+      - ReadWriteOnce
+    match_labels:
+      app: crashplan
+      pod: crashplan-target1
+      env: '{{ env | default("test") }}'
+  - name: crashplan-target2
+    size: 3Ti
+    access_modes:
+      - ReadWriteOnce
+    match_labels:
+      app: crashplan
+      pod: crashplan-target2
+      env: '{{ env | default("test") }}'

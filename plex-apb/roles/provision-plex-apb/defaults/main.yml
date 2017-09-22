@@ -1,0 +1,21 @@
+---
+namespace: "{{ lookup('env','NAMESPACE') | default('plex', true) }}"
+plex_version: "{{ lookup('env','PLEX_VERSION') | default('latest', true) }}"
+
+persistent_volume_claims:
+  - name: plex-config
+    size: 10Gi
+    access_modes:
+      - ReadWriteOnce
+    match_labels:
+      app: plex
+      pod: plex-config
+      env: '{{ env | default("test") }}'
+  - name: plex-data
+    size: 10Ti
+    access_modes:
+      - ReadWriteOnce
+    match_labels:
+      app: plex
+      pod: plex-data
+      env: '{{ env | default("test") }}'

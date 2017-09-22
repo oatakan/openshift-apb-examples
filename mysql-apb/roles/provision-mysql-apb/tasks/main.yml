@@ -1,0 +1,97 @@
+- name: create volumes
+  k8s_v1_persistent_volume_claim:
+    name: mysql
+    namespace: '{{ namespace }}'
+    state: present
+    access_modes:
+      - ReadWriteOnce
+    resources_requests:
+      storage: '{{ mysql_volume_size }}'
+    spec_selector_match_labels: '{{ mysql_volume_match_labels | default (omit) }}'
+    state: present
+
+- name: create service
+  k8s_v1_service:
+    name: mysql
+    namespace: '{{ namespace }}'
+    state: present
+    labels:
+      app: '{{ namespace }}'
+      service: mysql
+    selector:
+      app: '{{ namespace }}'
+      service: mysql
+    spec_external_i_ps: '{{ [mysql_external_ip] | default(omit) }}'
+    type: LoadBalancer
+    ports:
+    - name: mysql-3306
+      port: 3306
+      protocol: TCP
+      target_port: 3306
+  register: mysql_service
+
+#- name: create service from template
+#  template:
+#    src: mysql_service.yml.j2
+#    dest: /tmp/mysql_service.yml
+#  register: mysql_service
+#
+#- name: create service
+#  command: "oc create -f {{ mysql_service.dest | default(mysql_service.path) }} -n {{ namespace }}"
+#  ignore_errors: True
+
+- name: create deployment config
+  openshift_v1_deployment_config:
+    name: mysql
+    namespace: '{{ namespace }}'
+    labels:
+      app: '{{ namespace }}'
+      service: mysql
+    replicas: 1
+    selector:
+      app: '{{ namespace }}'
+      service: mysql
+    strategy_type: Rolling
+    strategy_rolling_params:
+      interval_seconds: 1
+      max_surge: 25%
+      max_unavailable: 25%
+      timeout_seconds: 600
+      update_period_seconds: 1
+    spec_template_metadata_labels:
+      app: '{{ namespace }}'
+      service: mysql
+    containers:
+    - env:
+      - name: MYSQL_ROOT_PASSWORD
+        value: '{{ mysql_root_password }}'
+      - name: MYSQL_USER
+        value: '{{ mysql_user }}'
+      - name: MYSQL_PASSWORD
+        value: '{{ mysql_password }}'
+      - name: MYSQL_ALLOW_EMPTY_PASSWORD
+        value: 'yes'
+      image: mysql:{{ mysql_version }}
+      image_pull_policy: IfNotPresent
+      name: mysql
+      ports:
+      - container_port: 3306
+        protocol: TCP
+      resources: {}
+      security_context: {}
+      termination_message_path: /dev/termination-log
+      volume_mounts:
+      - mount_path: /var/lib/mysql
+        name: mysql
+      working_dir: /
+    dns_policy: ClusterFirst
+    restart_policy: Always
+    termination_grace_period_seconds: 30
+    volumes:
+    - name: mysql
+      persistent_volume_claim:
+        claim_name: mysql
+      test: false
+      triggers:
+      - type: ConfigChange
+    state: present
