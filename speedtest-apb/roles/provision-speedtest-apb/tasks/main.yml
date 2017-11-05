@@ -1,5 +1,5 @@
 ##############################################################################
-## Provision speedtest-mini
+## Provision speedtest
 ## This role executes much of the needed functionality to provision an
 ## application using an Ansible Playbook Bundle.  Included in the comments
 ## below are some sample resources for getting started deploying an application
@@ -13,55 +13,55 @@
 ## one deployment of an image to a new one.
 ## https://docs.openshift.org/latest/architecture/core_concepts/deployments.html#deployments-and-deployment-configurations
 ##############################################################################
-- name: create speedtest-mini service
+- name: create speedtest service
   k8s_v1_service:
-    name: speedtest-mini
+    name: speedtest
     namespace: '{{ namespace }}'
     state: present
     labels:
       app: '{{ namespace }}'
-      service: speedtest-mini
+      service: speedtest
     selector:
       app: '{{ namespace }}'
-      service: speedtest-mini
+      service: speedtest
     type: LoadBalancer
     ports:
-      - name: speedtest-mini-8080
-        port: 8080
+      - name: speedtest-80
+        port: 80
         protocol: TCP
-        target_port: 8080
+        target_port: 80
 
-- name: create speedtest-mini route
+- name: create speedtest route
   openshift_v1_route:
-    name: speedtest-mini
+    name: speedtest
     namespace: '{{ namespace }}'
     labels:
       app: '{{ namespace }}'
-      service: speedtest-mini
-    to_name: speedtest-mini
-    spec_port_target_port: speedtest-mini-8080
+      service: speedtest
+    to_name: speedtest
+    spec_port_target_port: speedtest-80
   register: route
 
-- name: create deployment config for speedtest-mini
+- name: create deployment config for speedtest
   openshift_v1_deployment_config:
-    name: speedtest-mini
+    name: speedtest
     namespace: '{{ namespace }}'
     labels:
       app: '{{ namespace }}'
-      service: speedtest-mini
+      service: speedtest
     replicas: 1
     selector:
       app: '{{ namespace }}'
-      service: speedtest-mini
+      service: speedtest
     spec_template_metadata_labels:
       app: '{{ namespace }}'
-      service: speedtest-mini
+      service: speedtest
     containers:
     - env:
-      image: mlabbe/speedtest-mini:{{ speedtest_mini_version }}
-      name: speedtest-mini
+      image: adolfintel/speedtest:{{ speedtest_version }}
+      name: speedtest
       ports:
-      - container_port: 8080
+      - container_port: 80
         protocol: TCP
     dns_policy: ClusterFirst
     restart_policy: Always

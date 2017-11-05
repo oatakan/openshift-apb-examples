@@ -1,3 +1,0 @@
----
-namespace: "{{ lookup('env','NAMESPACE') | default('speedtest-mini', true) }}"
-speedtest_mini_version: "{{ lookup('env','SPEEDTEST_MINI_VERSION') | default('latest', true) }}"
