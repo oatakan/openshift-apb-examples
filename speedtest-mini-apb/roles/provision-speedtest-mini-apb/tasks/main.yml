@@ -1,0 +1,70 @@
+##############################################################################
+## Provision speedtest-mini
+## This role executes much of the needed functionality to provision an
+## application using an Ansible Playbook Bundle.  Included in the comments
+## below are some sample resources for getting started deploying an application
+## to OpenShift.
+##############################################################################
+
+
+##############################################################################
+## An OpenShift Origin deployment configuration provides a replication
+## controller, spins up pods, and also provides the ability to transition from
+## one deployment of an image to a new one.
+## https://docs.openshift.org/latest/architecture/core_concepts/deployments.html#deployments-and-deployment-configurations
+##############################################################################
+- name: create speedtest-mini service
+  k8s_v1_service:
+    name: speedtest-mini
+    namespace: '{{ namespace }}'
+    state: present
+    labels:
+      app: '{{ namespace }}'
+      service: speedtest-mini
+    selector:
+      app: '{{ namespace }}'
+      service: speedtest-mini
+    type: LoadBalancer
+    ports:
+      - name: speedtest-mini-8080
+        port: 8080
+        protocol: TCP
+        target_port: 8080
+
+- name: create speedtest-mini route
+  openshift_v1_route:
+    name: speedtest-mini
+    namespace: '{{ namespace }}'
+    labels:
+      app: '{{ namespace }}'
+      service: speedtest-mini
+    to_name: speedtest-mini
+    spec_port_target_port: speedtest-mini-8080
+  register: route
+
+- name: create deployment config for speedtest-mini
+  openshift_v1_deployment_config:
+    name: speedtest-mini
+    namespace: '{{ namespace }}'
+    labels:
+      app: '{{ namespace }}'
+      service: speedtest-mini
+    replicas: 1
+    selector:
+      app: '{{ namespace }}'
+      service: speedtest-mini
+    spec_template_metadata_labels:
+      app: '{{ namespace }}'
+      service: speedtest-mini
+    containers:
+    - env:
+      image: mlabbe/speedtest-mini:{{ speedtest_mini_version }}
+      name: speedtest-mini
+      ports:
+      - container_port: 8080
+        protocol: TCP
+    dns_policy: ClusterFirst
+    restart_policy: Always
+    termination_grace_period_seconds: 30
+    triggers:
+    - type: ConfigChange

@@ -1,0 +1,13 @@
+name: speedtest-mini-apb
+image: ansibleplaybookbundle/speedtest-mini-apb
+description: This is an apb that will deploy speedtest-mini
+bindable: False
+async: optional
+metadata:
+  displayName: speedtest-mini
+plans:
+  - name: default
+    description: This default plan deploys speedtest-mini-apb
+    free: True
+    metadata: {}
+    parameters: []
